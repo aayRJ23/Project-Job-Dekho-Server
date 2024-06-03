@@ -1,4 +1,4 @@
-# Project - Job - Dekho 
+# Project - Job - Dekho - Server
 Ongoing Project of MERN Stack based Online Job Portal - Server (API)
 
 ## Introduction
@@ -72,7 +72,7 @@ PROJECT JOB DEKHO SERVER/
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/yourusername/PROJECT-JOB-DEKHO-SERVER.git
+   git clone https://github.com/(my_username)/PROJECT-JOB-DEKHO-SERVER.git
    ```
 2. Navigate to the project directory:
    ```bash
@@ -115,18 +115,6 @@ PROJECT JOB DEKHO SERVER/
 - **GET /api/applications**: Get all applications.
 - **GET /api/applications/:id**: Get an application by ID.
 
-## Error Handling
-
-The project includes comprehensive error handling to ensure that all operations are performed smoothly. Middleware functions are used to catch and handle errors, both synchronous and asynchronous, providing meaningful error messages to the client.
-
-## Contributions
-
-Contributions are welcome! Please fork the repository and submit a pull request for review.
-
-## License
-
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
-
 ---
 
-Thank you for using Project Job Dekho Server! If you have any questions or need further assistance, please feel free to open an issue on GitHub.
+Thank you for using Project-Job-Dekho-Server! If you have any questions or need further assistance, please feel free to open an issue on GitHub.
