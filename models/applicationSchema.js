@@ -59,6 +59,10 @@ const applicationSchema = new mongoose.Schema({
       required: true,
     },
   },
+  accepted: {
+    type: Number,
+    default: -1,
+  },
 });
 
 export const Application = mongoose.model("Application", applicationSchema);

@@ -137,3 +137,27 @@ export const jobseekerDeleteApplication = catchAsyncErrors(
     });
   }
 );
+
+export const applicationStatus = catchAsyncErrors(async (req, res, next) => {
+  const { id } = req.params;
+  const { status } = req.body; // Assuming status is either 0 or 1
+
+  if (![0, 1].includes(status)) {
+    return next(new ErrorHandler("Invalid status value. Must be 0 or 1.", 400));
+  }
+
+  const application = await Application.findById(id);
+
+  if (!application) {
+    return next(new ErrorHandler("Application not found!", 404));
+  }
+
+  application.accepted = status;
+  await application.save();
+
+  res.status(200).json({
+    success: true,
+    message: "Application status updated!",
+    application,
+  });
+});
