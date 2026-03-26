@@ -2,7 +2,9 @@ import { catchAsyncErrors } from "../middlewares/catchAsyncError.js";
 import ErrorHandler from "../middlewares/error.js";
 import { Application } from "../models/applicationSchema.js";
 import { Job } from "../models/jobSchema.js";
+import { Notification } from "../models/notificationSchema.js";
 import cloudinary from "cloudinary";
+import { emitToUser } from "../server.js";
 
 export const postApplication = catchAsyncErrors(async (req, res, next) => {
   const { role } = req.user;
@@ -16,7 +18,7 @@ export const postApplication = catchAsyncErrors(async (req, res, next) => {
   }
 
   const { resume } = req.files;
-  
+
   const allowedFormats = ["image/png", "image/jpeg", "image/webp"];
   if (!allowedFormats.includes(resume.mimetype)) {
     return next(
@@ -76,6 +78,40 @@ export const postApplication = catchAsyncErrors(async (req, res, next) => {
       url: cloudinaryResponse.secure_url,
     },
   });
+
+  // --- Notify the Employer that someone applied ---
+  try {
+    const notifForEmployer = await Notification.create({
+      recipient: jobDetails.postedBy,
+      sender: req.user._id,
+      type: "APPLICATION_SUBMITTED",
+      message: `${name} has applied for your job "${jobDetails.title}".`,
+      meta: {
+        jobId: jobDetails._id,
+        jobTitle: jobDetails.title,
+        applicationId: application._id,
+        applicantName: name,
+      },
+    });
+    emitToUser(jobDetails.postedBy, notifForEmployer);
+
+    // --- Also notify the Job Seeker that their application was submitted ---
+    const notifForSeeker = await Notification.create({
+      recipient: req.user._id,
+      sender: jobDetails.postedBy,
+      type: "APPLICATION_SUBMITTED",
+      message: `Your application for "${jobDetails.title}" has been submitted successfully.`,
+      meta: {
+        jobId: jobDetails._id,
+        jobTitle: jobDetails.title,
+        applicationId: application._id,
+      },
+    });
+    emitToUser(req.user._id, notifForSeeker);
+  } catch (err) {
+    console.error("Notification error (postApplication):", err.message);
+  }
+
   res.status(200).json({
     success: true,
     message: "Application Submitted!",
@@ -140,7 +176,7 @@ export const jobseekerDeleteApplication = catchAsyncErrors(
 
 export const applicationStatus = catchAsyncErrors(async (req, res, next) => {
   const { id } = req.params;
-  const { status } = req.body; // Assuming status is either 0 or 1
+  const { status } = req.body;
 
   if (![0, 1].includes(status)) {
     return next(new ErrorHandler("Invalid status value. Must be 0 or 1.", 400));
@@ -154,6 +190,37 @@ export const applicationStatus = catchAsyncErrors(async (req, res, next) => {
 
   application.accepted = status;
   await application.save();
+
+  // --- Notify the Job Seeker about acceptance or rejection ---
+  try {
+    const isAccepted = status === 1;
+    const type = isAccepted ? "APPLICATION_ACCEPTED" : "APPLICATION_REJECTED";
+    const message = isAccepted
+      ? `Congratulations! Your application for "${application.meta?.jobTitle || "a job"}" has been accepted.`
+      : `Your application has been rejected by the employer.`;
+
+    // Fetch the job title for a better message
+    const job = application.meta?.jobId
+      ? await Job.findById(application.meta.jobId)
+      : null;
+
+    const notif = await Notification.create({
+      recipient: application.applicantID.user,
+      sender: req.user._id,
+      type,
+      message: isAccepted
+        ? `Congratulations! Your application for "${job ? job.title : "a job"}" has been ACCEPTED. The employer will contact you soon.`
+        : `Your application for "${job ? job.title : "a job"}" has been REJECTED.`,
+      meta: {
+        applicationId: application._id,
+        jobId: job ? job._id : undefined,
+        jobTitle: job ? job.title : undefined,
+      },
+    });
+    emitToUser(application.applicantID.user, notif);
+  } catch (err) {
+    console.error("Notification error (applicationStatus):", err.message);
+  }
 
   res.status(200).json({
     success: true,

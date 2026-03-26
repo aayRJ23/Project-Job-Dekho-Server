@@ -1,6 +1,9 @@
 import { catchAsyncErrors } from "../middlewares/catchAsyncError.js";
 import { Job } from "../models/jobSchema.js";
+import { User } from "../models/userSchema.js";
+import { Notification } from "../models/notificationSchema.js";
 import ErrorHandler from "../middlewares/error.js";
+import { emitToUser } from "../server.js";
 
 export const getAllJobs = catchAsyncErrors(async (req, res, next) => {
   const jobs = await Job.find({ expired: false });
@@ -48,6 +51,7 @@ export const postJob = catchAsyncErrors(async (req, res, next) => {
       new ErrorHandler("Cannot Enter Fixed and Ranged Salary together.", 400)
     );
   }
+
   const postedBy = req.user._id;
   const job = await Job.create({
     title,
@@ -61,6 +65,34 @@ export const postJob = catchAsyncErrors(async (req, res, next) => {
     salaryTo,
     postedBy,
   });
+
+  // --- Notify all Job Seekers about the new job ---
+  try {
+    const jobSeekers = await User.find({ role: "Job Seeker" }, "_id");
+
+    const notifications = jobSeekers.map((seeker) => ({
+      recipient: seeker._id,
+      sender: req.user._id,
+      type: "NEW_JOB_POSTED",
+      message: `New job posted: "${title}" in ${city}, ${country}.`,
+      meta: {
+        jobId: job._id,
+        jobTitle: title,
+      },
+    }));
+
+    if (notifications.length > 0) {
+      const saved = await Notification.insertMany(notifications);
+      // Emit real-time notification to each online seeker
+      jobSeekers.forEach((seeker, i) => {
+        emitToUser(seeker._id, saved[i]);
+      });
+    }
+  } catch (err) {
+    // Notification failure should NOT break the job post response
+    console.error("Notification error (postJob):", err.message);
+  }
+
   res.status(200).json({
     success: true,
     message: "Job Posted Successfully!",

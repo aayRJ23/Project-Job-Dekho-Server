@@ -3,6 +3,7 @@ import { dbConnection } from "./database/dbConnection.js";
 import jobRouter from "./routes/jobRoutes.js";
 import userRouter from "./routes/userRoutes.js";
 import applicationRouter from "./routes/applicationRoutes.js";
+import notificationRouter from "./routes/notificationRoutes.js";
 import { config } from "dotenv";
 import cors from "cors";
 import { errorMiddleware } from "./middlewares/error.js";
@@ -15,7 +16,7 @@ config({ path: "./config/.env" });
 app.use(
   cors({
     origin: [process.env.FRONTEND_URL],
-    method: ["GET", "POST", "DELETE", "PUT"],
+    methods: ["GET", "POST", "DELETE", "PUT", "PATCH"],
     credentials: true,
   })
 );
@@ -30,9 +31,12 @@ app.use(
     tempFileDir: "/tmp/",
   })
 );
+
 app.use("/api/v1/user", userRouter);
 app.use("/api/v1/job", jobRouter);
 app.use("/api/v1/application", applicationRouter);
+app.use("/api/v1/notification", notificationRouter);
+
 dbConnection();
 
 app.use(errorMiddleware);
